@@ -1,0 +1,27 @@
+{
+  "name": "claudex-council",
+  "version": "0.1.0",
+  "description": "Orchestrate brainstorming between Claude Code and Codex CLI",
+  "type": "module",
+  "main": "dist/cli.js",
+  "bin": {
+    "claudex-council": "dist/cli.js"
+  },
+  "scripts": {
+    "build": "tsc",
+    "dev": "tsc --watch",
+    "test": "vitest run",
+    "test:watch": "vitest",
+    "start": "node dist/cli.js"
+  },
+  "dependencies": {
+    "chalk": "^5.6.2",
+    "commander": "^14.0.3",
+    "ora": "^9.3.0"
+  },
+  "devDependencies": {
+    "@types/node": "^25.5.0",
+    "typescript": "^5.9.3",
+    "vitest": "^4.1.0"
+  }
+}
