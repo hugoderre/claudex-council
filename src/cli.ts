@@ -20,7 +20,7 @@ async function savePartialTranscript(prompt: string, messages: import('./provide
 const program = new Command()
   .name('claudex-council')
   .description('Orchestrate brainstorming between Claude Code and Codex CLI')
-  .version('1.6.0')
+  .version('1.7.0')
   .argument('[prompt]', 'The question or topic to brainstorm')
   .option('-r, --rounds <n>', 'Number of exchange rounds', '3')
   .option('-s, --save-transcript', 'Save full transcript as markdown', false)
