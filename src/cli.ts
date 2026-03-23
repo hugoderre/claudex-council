@@ -79,6 +79,8 @@ const program = new Command()
       process.exit(130);
     });
 
+    let firstChunkInRound = true;
+
     try {
       const result = await runCouncil({
         prompt,
@@ -87,21 +89,34 @@ const program = new Command()
         rounds,
         verbose: opts.verbose,
         onRoundStart: (round, provider, role) => {
+          firstChunkInRound = true;
           if (round <= rounds) {
             spinner.start(formatRoundHeader(round, rounds, provider, role));
           } else {
             spinner.start('📝 Generating final synthesis...');
           }
         },
-        onRoundEnd: (round, response) => {
-          spinner.succeed();
-          if (opts.verbose && round <= rounds) {
-            console.log(chalk.dim(`\n${response}\n`));
+        onRoundEnd: (_round, _response) => {
+          if (opts.verbose) {
+            // Streaming already printed the content, just add spacing
+            process.stdout.write('\n\n');
+          } else {
+            spinner.succeed();
           }
+        },
+        onChunk: (text) => {
+          if (firstChunkInRound) {
+            spinner.succeed();
+            process.stdout.write(chalk.dim('\n'));
+            firstChunkInRound = false;
+          }
+          process.stdout.write(chalk.dim(text));
         },
       });
 
-      console.log(formatFinalOutput(result.synthesis));
+      if (!opts.verbose) {
+        console.log(formatFinalOutput(result.synthesis));
+      }
 
       if (opts.saveTranscript) {
         const transcript = buildTranscript(prompt, result.messages, result.synthesis);

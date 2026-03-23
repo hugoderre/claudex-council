@@ -7,5 +7,5 @@ export interface Message {
 
 export interface LLMProvider {
   name: string;
-  call(systemPrompt: string, userPrompt: string): Promise<string>;
+  call(systemPrompt: string, userPrompt: string, onChunk?: (text: string) => void): Promise<string>;
 }

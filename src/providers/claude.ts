@@ -3,12 +3,11 @@ import type { LLMProvider } from './types.js';
 
 const TIMEOUT_MS = 120_000;
 
-interface ClaudeResponse {
-  result: string;
-  modelUsage?: Record<string, unknown>;
-}
-
-function execClaude(args: string[], stdinData: string): Promise<{ result: string; model: string }> {
+function execClaudeStream(
+  args: string[],
+  stdinData: string,
+  onChunk?: (text: string) => void,
+): Promise<{ result: string; model: string }> {
   return new Promise((resolve, reject) => {
     const proc = spawn('claude', args, {
       timeout: TIMEOUT_MS,
@@ -17,8 +16,38 @@ function execClaude(args: string[], stdinData: string): Promise<{ result: string
 
     let stdout = '';
     let stderr = '';
+    let lastResult = '';
+    let lastModel = 'unknown';
 
-    proc.stdout.on('data', (data: Buffer) => { stdout += data.toString(); });
+    proc.stdout.on('data', (data: Buffer) => {
+      const chunk = data.toString();
+      stdout += chunk;
+
+      if (onChunk) {
+        // Parse JSONL lines for streaming
+        for (const line of chunk.split('\n')) {
+          if (!line.trim()) continue;
+          try {
+            const event = JSON.parse(line);
+            if (event.type === 'assistant' && event.message?.content) {
+              for (const block of event.message.content) {
+                if (block.type === 'text' && block.text) {
+                  onChunk(block.text);
+                }
+              }
+            }
+            if (event.type === 'result') {
+              lastResult = event.result ?? '';
+              const modelUsage = event.modelUsage ?? {};
+              lastModel = Object.keys(modelUsage)[0] ?? 'unknown';
+            }
+          } catch {
+            // Not JSON or incomplete line — ignore
+          }
+        }
+      }
+    });
+
     proc.stderr.on('data', (data: Buffer) => { stderr += data.toString(); });
 
     proc.on('error', (error) => {
@@ -30,16 +59,22 @@ function execClaude(args: string[], stdinData: string): Promise<{ result: string
         reject(new Error(`Claude CLI failed (exit ${code}):\n${stderr}`));
         return;
       }
-      try {
-        const parsed: ClaudeResponse = JSON.parse(stdout);
-        const model = Object.keys(parsed.modelUsage ?? {})[0] ?? 'unknown';
-        resolve({ result: parsed.result ?? stdout, model });
-      } catch {
-        resolve({ result: stdout.trim(), model: 'unknown' });
+
+      if (onChunk) {
+        // Already parsed via streaming
+        resolve({ result: lastResult, model: lastModel });
+      } else {
+        // Non-streaming: parse JSON result
+        try {
+          const parsed = JSON.parse(stdout);
+          const model = Object.keys(parsed.modelUsage ?? {})[0] ?? 'unknown';
+          resolve({ result: parsed.result ?? stdout, model });
+        } catch {
+          resolve({ result: stdout.trim(), model: 'unknown' });
+        }
       }
     });
 
-    // Pass prompt via stdin to avoid ARG_MAX limits
     proc.stdin.write(stdinData);
     proc.stdin.end();
   });
@@ -50,16 +85,23 @@ export class ClaudeProvider implements LLMProvider {
 
   constructor(private model?: string) {}
 
-  async call(systemPrompt: string, userPrompt: string): Promise<string> {
+  async call(
+    systemPrompt: string,
+    userPrompt: string,
+    onChunk?: (text: string) => void,
+  ): Promise<string> {
+    const streaming = !!onChunk;
     const args = [
       '-p', '-',
       '--system-prompt', systemPrompt,
-      '--output-format', 'json',
+      '--output-format', streaming ? 'stream-json' : 'json',
+      ...(streaming ? ['--verbose'] : []),
       ...(this.model ? ['--model', this.model] : []),
     ];
 
     try {
-      const { result, model } = await execClaude(args, userPrompt).catch(() => execClaude(args, userPrompt));
+      const { result, model } = await execClaudeStream(args, userPrompt, onChunk)
+        .catch(() => execClaudeStream(args, userPrompt, onChunk));
       this._lastModel = model;
       return result;
     } catch (error) {
