@@ -12,13 +12,13 @@ You → prompt → Claude (proposer) → Codex (critic) → Claude (refines) →
 
 Each round, the proposer generates or improves ideas while the critic challenges them. After N rounds, Claude synthesizes everything into a final, consolidated answer.
 
-## Install
+## Quick start
 
 ```bash
 npx claudex-council "your prompt"
 ```
 
-Or install globally:
+## Install globally
 
 ```bash
 npm install -g claudex-council
