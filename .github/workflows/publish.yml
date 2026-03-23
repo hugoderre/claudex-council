@@ -9,7 +9,7 @@ jobs:
   publish:
     runs-on: ubuntu-latest
     permissions:
-      contents: read
+      contents: write
     steps:
       - uses: actions/checkout@v4
 
@@ -40,9 +40,24 @@ jobs:
       - if: steps.version.outputs.changed == 'true'
         run: npm run build
 
-      - if: steps.version.outputs.changed == 'true'
+      - name: Publish to npm
+        if: steps.version.outputs.changed == 'true'
         run: |
           echo "Publishing v${{ steps.version.outputs.local }} (was ${{ steps.version.outputs.published }})"
           npm publish
         env:
           NODE_AUTH_TOKEN: ${{ secrets.NPM_TOKEN }}
+
+      - name: Create GitHub Release
+        if: steps.version.outputs.changed == 'true'
+        uses: softprops/action-gh-release@v2
+        with:
+          tag_name: v${{ steps.version.outputs.local }}
+          name: v${{ steps.version.outputs.local }}
+          body: |
+            Published to npm: [`claudex-council@${{ steps.version.outputs.local }}`](https://www.npmjs.com/package/claudex-council)
+
+            ```bash
+            npx claudex-council@${{ steps.version.outputs.local }} "your prompt"
+            ```
+          generate_release_notes: true
