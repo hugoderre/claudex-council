@@ -24,11 +24,14 @@ function execClaude(args: string[]): Promise<string> {
 export class ClaudeProvider implements LLMProvider {
   name = 'Claude';
 
+  constructor(private model?: string) {}
+
   async call(systemPrompt: string, userPrompt: string): Promise<string> {
     const args = [
       '-p', userPrompt,
       '--system-prompt', systemPrompt,
       '--output-format', 'json',
+      ...(this.model ? ['--model', this.model] : []),
     ];
 
     try {

@@ -8,6 +8,7 @@ import { runCouncil, CouncilError } from './orchestrator.js';
 import { buildTranscript, saveTranscript } from './transcript.js';
 import { formatRoundHeader, formatFinalOutput, formatError } from './formatter.js';
 import { checkPrerequisites } from './preflight.js';
+import { listModels } from './models.js';
 
 const MAX_ROUNDS = 10;
 
@@ -20,12 +21,25 @@ const program = new Command()
   .name('claudex-council')
   .description('Orchestrate brainstorming between Claude Code and Codex CLI')
   .version('1.0.0')
-  .argument('<prompt>', 'The question or topic to brainstorm')
+  .argument('[prompt]', 'The question or topic to brainstorm')
   .option('-r, --rounds <n>', 'Number of exchange rounds', '3')
   .option('-s, --save-transcript', 'Save full transcript as markdown', false)
   .option('-o, --output <dir>', 'Transcript output directory', './transcripts')
   .option('-v, --verbose', 'Display each round in real-time', false)
+  .option('--claude-model <model>', 'Model for Claude (proposer)')
+  .option('--codex-model <model>', 'Model for Codex (critic)')
+  .option('--list-models', 'List available models for both providers')
   .action(async (prompt, opts) => {
+    if (opts.listModels) {
+      await listModels();
+      process.exit(0);
+    }
+
+    if (!prompt) {
+      console.error(formatError('Please provide a prompt. Usage: claudex-council "your question"'));
+      process.exit(1);
+    }
+
     const parsedRounds = parseInt(opts.rounds, 10);
     const rounds = Math.min(parsedRounds, MAX_ROUNDS);
 
@@ -46,8 +60,8 @@ const program = new Command()
       process.exit(1);
     }
 
-    const proposer = new ClaudeProvider();
-    const critic = new CodexProvider();
+    const proposer = new ClaudeProvider(opts.claudeModel);
+    const critic = new CodexProvider(opts.codexModel);
     const spinner = ora();
 
     // Handle SIGINT — save partial transcript and kill children

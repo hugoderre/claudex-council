@@ -22,10 +22,16 @@ function execCodex(args: string[]): Promise<void> {
 export class CodexProvider implements LLMProvider {
   name = 'Codex';
 
+  constructor(private model?: string) {}
+
   async call(systemPrompt: string, userPrompt: string): Promise<string> {
     const outFile = join(tmpdir(), `codex-council-${randomUUID()}.txt`);
     const fullPrompt = `${systemPrompt}\n\n---\n\n${userPrompt}`;
-    const args = ['exec', '--full-auto', '-o', outFile, fullPrompt];
+    const args = [
+      'exec', '--full-auto',
+      ...(this.model ? ['--model', this.model] : []),
+      '-o', outFile, fullPrompt,
+    ];
 
     try {
       try {
