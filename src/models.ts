@@ -28,7 +28,7 @@ async function getCodexModels(): Promise<{ slug: string; description: string }[]
   }
 }
 
-async function getCodexDefaultModel(): Promise<string> {
+export async function getDefaultCodexModel(): Promise<string> {
   try {
     const configPath = join(homedir(), '.codex', 'config.toml');
     const raw = await readFile(configPath, 'utf-8');
@@ -89,7 +89,7 @@ export async function listModels(): Promise<void> {
   const [claudeModels, codexModels, codexDefault] = await Promise.all([
     getClaudeModels(),
     getCodexModels(),
-    getCodexDefaultModel(),
+    getDefaultCodexModel(),
   ]);
 
   // Detect Claude default (sonnet is the Claude Code default)

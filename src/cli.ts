@@ -8,7 +8,7 @@ import { runCouncil, CouncilError } from './orchestrator.js';
 import { buildTranscript, saveTranscript } from './transcript.js';
 import { formatRoundHeader, formatFinalOutput, formatError } from './formatter.js';
 import { checkPrerequisites } from './preflight.js';
-import { listModels } from './models.js';
+import { listModels, getDefaultCodexModel } from './models.js';
 
 const MAX_ROUNDS = 10;
 
@@ -64,7 +64,9 @@ const program = new Command()
     const critic = new CodexProvider(opts.codexModel);
     const spinner = ora();
 
-    console.log(chalk.dim(`\nClaude model: ${opts.claudeModel ?? 'default'} | Codex model: ${opts.codexModel ?? 'default'}\n`));
+    const claudeLabel = opts.claudeModel ?? 'sonnet';
+    const codexLabel = opts.codexModel ?? await getDefaultCodexModel();
+    console.log(chalk.dim(`\n⚙️  Claude [${claudeLabel}] | Codex [${codexLabel}]\n`));
 
     // Handle SIGINT — save partial transcript and kill children
     process.on('SIGINT', async () => {
@@ -92,10 +94,7 @@ const program = new Command()
           }
         },
         onRoundEnd: (round, response) => {
-          const modelInfo = proposer.lastModel && round === 1
-            ? chalk.dim(` [${proposer.lastModel}]`)
-            : '';
-          spinner.succeed(spinner.text + modelInfo);
+          spinner.succeed();
           if (opts.verbose && round <= rounds) {
             console.log(chalk.dim(`\n${response}\n`));
           }
