@@ -1,5 +1,4 @@
-// src/providers/claude.ts
-import { execFile } from 'node:child_process';
+import { spawn } from 'node:child_process';
 import type { LLMProvider } from './types.js';
 
 const TIMEOUT_MS = 120_000;
@@ -9,11 +8,26 @@ interface ClaudeResponse {
   modelUsage?: Record<string, unknown>;
 }
 
-function execClaude(args: string[]): Promise<{ result: string; model: string }> {
+function execClaude(args: string[], stdinData: string): Promise<{ result: string; model: string }> {
   return new Promise((resolve, reject) => {
-    execFile('claude', args, { timeout: TIMEOUT_MS, maxBuffer: 10 * 1024 * 1024 }, (error, stdout, stderr) => {
-      if (error) {
-        reject(new Error(`Claude CLI failed: ${error.message}\n${stderr}`));
+    const proc = spawn('claude', args, {
+      timeout: TIMEOUT_MS,
+      stdio: ['pipe', 'pipe', 'pipe'],
+    });
+
+    let stdout = '';
+    let stderr = '';
+
+    proc.stdout.on('data', (data: Buffer) => { stdout += data.toString(); });
+    proc.stderr.on('data', (data: Buffer) => { stderr += data.toString(); });
+
+    proc.on('error', (error) => {
+      reject(new Error(`Claude CLI failed: ${error.message}`));
+    });
+
+    proc.on('close', (code) => {
+      if (code !== 0) {
+        reject(new Error(`Claude CLI failed (exit ${code}):\n${stderr}`));
         return;
       }
       try {
@@ -24,6 +38,10 @@ function execClaude(args: string[]): Promise<{ result: string; model: string }> 
         resolve({ result: stdout.trim(), model: 'unknown' });
       }
     });
+
+    // Pass prompt via stdin to avoid ARG_MAX limits
+    proc.stdin.write(stdinData);
+    proc.stdin.end();
   });
 }
 
@@ -34,14 +52,14 @@ export class ClaudeProvider implements LLMProvider {
 
   async call(systemPrompt: string, userPrompt: string): Promise<string> {
     const args = [
-      '-p', userPrompt,
+      '-p', '-',
       '--system-prompt', systemPrompt,
       '--output-format', 'json',
       ...(this.model ? ['--model', this.model] : []),
     ];
 
     try {
-      const { result, model } = await execClaude(args).catch(() => execClaude(args));
+      const { result, model } = await execClaude(args, userPrompt).catch(() => execClaude(args, userPrompt));
       this._lastModel = model;
       return result;
     } catch (error) {

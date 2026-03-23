@@ -1,11 +1,21 @@
-// tests/providers/claude.test.ts
 import { describe, it, expect, vi } from 'vitest';
 import { ClaudeProvider } from '../../src/providers/claude.js';
-import { execFile } from 'node:child_process';
+import { spawn } from 'node:child_process';
+import { EventEmitter } from 'node:events';
+import { Writable, Readable } from 'node:stream';
 
 vi.mock('node:child_process', () => ({
-  execFile: vi.fn(),
+  spawn: vi.fn(),
 }));
+
+function createMockProcess(stdout: string, code = 0) {
+  const proc = new EventEmitter() as any;
+  proc.stdout = new Readable({ read() { this.push(stdout); this.push(null); } });
+  proc.stderr = new Readable({ read() { this.push(null); } });
+  proc.stdin = new Writable({ write(_chunk: any, _enc: any, cb: any) { cb(); } });
+  setTimeout(() => proc.emit('close', code), 10);
+  return proc;
+}
 
 describe('ClaudeProvider', () => {
   it('has name "Claude"', () => {
@@ -13,34 +23,27 @@ describe('ClaudeProvider', () => {
     expect(provider.name).toBe('Claude');
   });
 
-  it('calls claude CLI with correct args and parses JSON response', async () => {
-    const mockExecFile = vi.mocked(execFile);
-    mockExecFile.mockImplementation((_cmd, _args, _opts, callback: any) => {
-      callback(null, JSON.stringify({ result: 'test response' }), '');
-      return {} as any;
-    });
+  it('calls claude CLI and parses JSON response via stdin', async () => {
+    const mockSpawn = vi.mocked(spawn);
+    mockSpawn.mockReturnValue(createMockProcess(JSON.stringify({ result: 'test response' })));
 
     const provider = new ClaudeProvider();
     const result = await provider.call('system prompt', 'user prompt');
     expect(result).toBe('test response');
 
-    expect(mockExecFile).toHaveBeenCalledWith(
+    expect(mockSpawn).toHaveBeenCalledWith(
       'claude',
-      expect.arrayContaining(['-p', 'user prompt', '--system-prompt', 'system prompt', '--output-format', 'json']),
+      expect.arrayContaining(['-p', '-', '--system-prompt', 'system prompt', '--output-format', 'json']),
       expect.any(Object),
-      expect.any(Function),
     );
   });
 
   it('extracts model from modelUsage in JSON response', async () => {
-    const mockExecFile = vi.mocked(execFile);
-    mockExecFile.mockImplementation((_cmd, _args, _opts, callback: any) => {
-      callback(null, JSON.stringify({
-        result: 'hello',
-        modelUsage: { 'claude-opus-4-6': { inputTokens: 10 } },
-      }), '');
-      return {} as any;
-    });
+    const mockSpawn = vi.mocked(spawn);
+    mockSpawn.mockReturnValue(createMockProcess(JSON.stringify({
+      result: 'hello',
+      modelUsage: { 'claude-opus-4-6': { inputTokens: 10 } },
+    })));
 
     const provider = new ClaudeProvider('opus');
     await provider.call('sys', 'user');
@@ -48,20 +51,16 @@ describe('ClaudeProvider', () => {
   });
 
   it('passes --model flag when model is specified', async () => {
-    const mockExecFile = vi.mocked(execFile);
-    mockExecFile.mockImplementation((_cmd, _args, _opts, callback: any) => {
-      callback(null, JSON.stringify({ result: 'ok' }), '');
-      return {} as any;
-    });
+    const mockSpawn = vi.mocked(spawn);
+    mockSpawn.mockReturnValue(createMockProcess(JSON.stringify({ result: 'ok' })));
 
     const provider = new ClaudeProvider('opus');
     await provider.call('sys', 'user');
 
-    expect(mockExecFile).toHaveBeenCalledWith(
+    expect(mockSpawn).toHaveBeenCalledWith(
       'claude',
       expect.arrayContaining(['--model', 'opus']),
       expect.any(Object),
-      expect.any(Function),
     );
   });
 });
