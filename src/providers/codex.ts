@@ -5,7 +5,7 @@ import { join } from 'node:path';
 import { randomUUID } from 'node:crypto';
 import type { LLMProvider } from './types.js';
 
-const TIMEOUT_MS = 120_000;
+const DEFAULT_TIMEOUT_MS = 300_000; // 5 minutes
 
 function execCodexStream(
   args: string[],
@@ -14,7 +14,7 @@ function execCodexStream(
 ): Promise<string> {
   return new Promise((resolve, reject) => {
     const proc = spawn('codex', args, {
-      timeout: TIMEOUT_MS,
+      timeout: DEFAULT_TIMEOUT_MS,
       stdio: ['pipe', 'pipe', 'pipe'],
     });
 
@@ -64,7 +64,7 @@ function execCodexStream(
 function execCodexFile(args: string[], stdinData: string, outFile: string): Promise<string> {
   return new Promise((resolve, reject) => {
     const proc = spawn('codex', args, {
-      timeout: TIMEOUT_MS,
+      timeout: DEFAULT_TIMEOUT_MS,
       stdio: ['pipe', 'pipe', 'pipe'],
     });
 

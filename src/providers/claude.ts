@@ -1,7 +1,7 @@
 import { spawn } from 'node:child_process';
 import type { LLMProvider } from './types.js';
 
-const TIMEOUT_MS = 120_000;
+const DEFAULT_TIMEOUT_MS = 300_000; // 5 minutes — long rounds with Opus need time
 
 function execClaudeStream(
   args: string[],
@@ -10,7 +10,7 @@ function execClaudeStream(
 ): Promise<{ result: string; model: string }> {
   return new Promise((resolve, reject) => {
     const proc = spawn('claude', args, {
-      timeout: TIMEOUT_MS,
+      timeout: DEFAULT_TIMEOUT_MS,
       stdio: ['pipe', 'pipe', 'pipe'],
     });
 
