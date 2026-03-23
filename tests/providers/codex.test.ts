@@ -37,6 +37,7 @@ describe('CodexProvider', () => {
     const callArgs = mockExecFile.mock.calls[0][1] as string[];
     expect(callArgs).toContain('exec');
     expect(callArgs).toContain('--full-auto');
+    expect(callArgs).toContain('--skip-git-repo-check');
     expect(callArgs).toContain('-o');
     // Verify -o is followed by a temp file path
     const oIndex = callArgs.indexOf('-o');

@@ -28,7 +28,7 @@ export class CodexProvider implements LLMProvider {
     const outFile = join(tmpdir(), `codex-council-${randomUUID()}.txt`);
     const fullPrompt = `${systemPrompt}\n\n---\n\n${userPrompt}`;
     const args = [
-      'exec', '--full-auto',
+      'exec', '--full-auto', '--skip-git-repo-check',
       ...(this.model ? ['--model', this.model] : []),
       '-o', outFile, fullPrompt,
     ];

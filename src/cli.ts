@@ -64,6 +64,8 @@ const program = new Command()
     const critic = new CodexProvider(opts.codexModel);
     const spinner = ora();
 
+    console.log(chalk.dim(`\nClaude model: ${opts.claudeModel ?? 'default'} | Codex model: ${opts.codexModel ?? 'default'}\n`));
+
     // Handle SIGINT — save partial transcript and kill children
     process.on('SIGINT', async () => {
       spinner.fail('Interrupted');
@@ -90,7 +92,10 @@ const program = new Command()
           }
         },
         onRoundEnd: (round, response) => {
-          spinner.succeed();
+          const modelInfo = proposer.lastModel && round === 1
+            ? chalk.dim(` [${proposer.lastModel}]`)
+            : '';
+          spinner.succeed(spinner.text + modelInfo);
           if (opts.verbose && round <= rounds) {
             console.log(chalk.dim(`\n${response}\n`));
           }

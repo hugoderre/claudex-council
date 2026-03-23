@@ -4,7 +4,12 @@ import type { LLMProvider } from './types.js';
 
 const TIMEOUT_MS = 120_000;
 
-function execClaude(args: string[]): Promise<string> {
+interface ClaudeResponse {
+  result: string;
+  modelUsage?: Record<string, unknown>;
+}
+
+function execClaude(args: string[]): Promise<{ result: string; model: string }> {
   return new Promise((resolve, reject) => {
     execFile('claude', args, { timeout: TIMEOUT_MS, maxBuffer: 10 * 1024 * 1024 }, (error, stdout, stderr) => {
       if (error) {
@@ -12,10 +17,11 @@ function execClaude(args: string[]): Promise<string> {
         return;
       }
       try {
-        const parsed = JSON.parse(stdout);
-        resolve(parsed.result ?? stdout);
+        const parsed: ClaudeResponse = JSON.parse(stdout);
+        const model = Object.keys(parsed.modelUsage ?? {})[0] ?? 'unknown';
+        resolve({ result: parsed.result ?? stdout, model });
       } catch {
-        resolve(stdout.trim());
+        resolve({ result: stdout.trim(), model: 'unknown' });
       }
     });
   });
@@ -35,10 +41,17 @@ export class ClaudeProvider implements LLMProvider {
     ];
 
     try {
-      return await execClaude(args);
+      const { result, model } = await execClaude(args).catch(() => execClaude(args));
+      this._lastModel = model;
+      return result;
     } catch (error) {
-      // 1 immediate retry per spec
-      return await execClaude(args);
+      throw error;
     }
   }
+
+  get lastModel(): string | undefined {
+    return this._lastModel;
+  }
+
+  private _lastModel?: string;
 }

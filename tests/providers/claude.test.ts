@@ -31,4 +31,37 @@ describe('ClaudeProvider', () => {
       expect.any(Function),
     );
   });
+
+  it('extracts model from modelUsage in JSON response', async () => {
+    const mockExecFile = vi.mocked(execFile);
+    mockExecFile.mockImplementation((_cmd, _args, _opts, callback: any) => {
+      callback(null, JSON.stringify({
+        result: 'hello',
+        modelUsage: { 'claude-opus-4-6': { inputTokens: 10 } },
+      }), '');
+      return {} as any;
+    });
+
+    const provider = new ClaudeProvider('opus');
+    await provider.call('sys', 'user');
+    expect(provider.lastModel).toBe('claude-opus-4-6');
+  });
+
+  it('passes --model flag when model is specified', async () => {
+    const mockExecFile = vi.mocked(execFile);
+    mockExecFile.mockImplementation((_cmd, _args, _opts, callback: any) => {
+      callback(null, JSON.stringify({ result: 'ok' }), '');
+      return {} as any;
+    });
+
+    const provider = new ClaudeProvider('opus');
+    await provider.call('sys', 'user');
+
+    expect(mockExecFile).toHaveBeenCalledWith(
+      'claude',
+      expect.arrayContaining(['--model', 'opus']),
+      expect.any(Object),
+      expect.any(Function),
+    );
+  });
 });
